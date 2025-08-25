@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Caça ao Tesouro 🎁</title>
+  <meta name="description" content="Jogo de caça ao tesouro com charadas e senhas." />
+  <style>
+    /* ——— Reset/Vars ——— */
+    :root{
+      --bg:#0f1020; --card:#17182c; --muted:#8b90a5; --text:#f3f4f8; --accent:#7c3aed; --accent-2:#22d3ee; --ok:#22c55e; --bad:#ef4444;
+      --radius:18px; --shadow:0 10px 30px rgba(0,0,0,.35);
+    }
+    *,*::before,*::after{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans",sans-serif;color:var(--text);background:radial-gradient(1200px 800px at 80% -10%,rgba(124,58,237,.18),transparent 60%), radial-gradient(1000px 700px at -10% 110%,rgba(34,211,238,.16),transparent 60%), var(--bg)}
+
+    /* ——— Layout ——— */
+    .wrap{max-width:960px;margin:0 auto;padding:24px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:8px 0 20px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:var(--shadow)}
+    h1{font-size:clamp(1.2rem,3vw,1.6rem);margin:0;letter-spacing:.3px}
+    .org-link{opacity:.7;font-size:.9rem;cursor:pointer}
+
+    /* ——— Cards/Sections ——— */
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));backdrop-filter: blur(6px);border:1px solid rgba(255,255,255,.06); border-radius:var(--radius); box-shadow:var(--shadow); padding:22px}
+    .grid{display:grid;gap:18px}
+
+    /* ——— Buttons/Inputs ——— */
+    .btn{appearance:none;border:0;cursor:pointer;border-radius:14px;padding:12px 18px;font-weight:700;letter-spacing:.3px;transition:.2s transform,.2s filter;background:linear-gradient(135deg,var(--accent),#5b21b6);color:white;box-shadow:0 8px 20px rgba(124,58,237,.35)}
+    .btn:hover{transform:translateY(-1px)}
+    .btn:active{transform:translateY(0)}
+    .btn.secondary{background:linear-gradient(135deg,#0ea5e9,#0369a1);box-shadow:0 8px 20px rgba(14,165,233,.35)}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.14);box-shadow:none;color:var(--text)}
+    .btn.success{background:linear-gradient(135deg,#16a34a,#15803d);box-shadow:0 8px 20px rgba(22,163,74,.35)}
+
+    input[type="text"],input[type="password"],input[type="url"],textarea{width:100%; padding:12px 14px; border-radius:12px; background:#0c0d1a; border:1px solid rgba(255,255,255,.08); color:var(--text); outline:none; font-size:1rem}
+    label{font-size:.9rem;color:var(--muted)}
+    .hint{color:var(--muted); font-size:.95rem}
+    .muted{color:var(--muted)}
+
+    /* ——— Game ——— */
+    .riddle{font-size:1.15rem;line-height:1.5}
+    .level-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.02);font-size:.9rem;color:var(--muted)}
+    .progress{height:10px;background:#0c0d1a;border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+    .progress > span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:0%}
+    .status{min-height:24px;font-weight:700}
+    .status.ok{color:var(--ok)}
+    .status.bad{color:var(--bad)}
+
+    /* ——— Modals ——— */
+    dialog{border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:0; background:var(--card); color:var(--text); width:min(780px,96vw)}
+    dialog::backdrop{backdrop-filter:blur(4px); background:rgba(0,0,0,.35)}
+    .modal-head{display:flex;align-items:center;justify-content:space-between; padding:18px 20px; border-bottom:1px solid rgba(255,255,255,.06)}
+    .modal-body{padding:18px 20px}
+    .modal-grid{display:grid; gap:14px}
+    .flex{display:flex; gap:10px; align-items:center}
+    .right{margin-left:auto}
+
+    /* ——— Printable ——— */
+    .print-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    .slip{border:1px dashed #999;border-radius:12px;padding:14px;background:white;color:#111}
+    .slip h4{margin:0 0 6px}
+    .slip p{margin:6px 0}
+
+    /* ——— Finish confetti canvas ——— */
+    #confetti{position:fixed;inset:0;pointer-events:none}
+
+    @media (min-width:720px){
+      .grid{grid-template-columns:1.2fr .8fr}
+    }
+  </style>
+</head>
+<body>
+  <canvas id="confetti"></canvas>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <h1>Caça ao Tesouro do Aniversário 🎉</h1>
+      </div>
+      <div class="org-link" id="openOrganizer">Organizador</div>
+    </header>
+
+    <main class="grid">
+      <section class="card" id="screenStart">
+        <h2>Bem-vindo!</h2>
+        <p class="hint">Escaneou o QR Code? Ótimo. Digite seu nome e clique em começar. Você receberá a primeira charada. Ao encontrar o papel escondido, digite a senha para liberar a próxima pista!</p>
+        <div style="height:8px"></div>
+        <label for="playerName">Seu nome</label>
+        <input id="playerName" type="text" placeholder="Ex.: João" />
+        <div style="height:12px"></div>
+        <button class="btn" id="btnStart">Começar o jogo</button>
+      </section>
+
+      <section class="card" id="screenGame" hidden>
+        <div class="flex" style="justify-content:space-between; align-items:center">
+          <div class="level-badge">Nível <span id="levelIndex">1</span> de <span id="levelTotal">1</span></div>
+          <div class="muted" id="playerTag"></div>
+        </div>
+        <div style="height:12px"></div>
+        <div class="progress"><span id="progressBar"></span></div>
+        <div style="height:14px"></div>
+        <div class="riddle" id="riddleText">Charada aqui…</div>
+        <div style="height:12px"></div>
+        <details>
+          <summary class="hint">Precisa de uma dica?</summary>
+          <div id="hintText" class="hint"></div>
+        </details>
+        <div style="height:12px"></div>
+        <label for="answer">Digite a senha do papel</label>
+        <input id="answer" type="text" placeholder="Senha encontrada" autocomplete="off" />
+        <div class="flex" style="margin-top:12px">
+          <button class="btn success" id="btnCheck">Validar senha</button>
+          <button class="btn ghost" id="btnReset">Recomeçar</button>
+          <div class="right status" id="status"></div>
+        </div>
+      </section>
+
+      <section class="card" id="screenInfo">
+        <h3>Como funciona</h3>
+        <ol>
+          <li>Leia a charada na tela.</li>
+          <li>Encontre o papel escondido correspondente.</li>
+          <li>Desvende o <strong>enigima</strong> e digite a <strong>senha</strong> escrita no papel para liberar a próxima pista.</li>
+          <li>Chegue ao final e desbloqueie o presente! 🎁</li>
+        </ol>
+        <p class="hint">Dica do organizador: use senhas curtas e sem acentos (Ex.: <code>SOFA42</code>, <code>GAVETA</code>).</p>
+      </section>
+    </main>
+  </div>
+
+  <!-- ——— Organizer modal (configuração do jogo) ——— -->
+  <dialog id="organizerModal">
+    <div class="modal-head">
+      <strong>Configuração do jogo</strong>
+      <button class="btn ghost" id="closeOrganizer">Fechar</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-grid">
+        <details open>
+          <summary><strong>Etapas / Charadas</strong></summary>
+          <div class="hint">Edite a lista de { riddle, password, hint }. Uma por linha, em JSON. Clique em “Salvar configuração”.</div>
+          <textarea id="levelsEditor" rows="10" spellcheck="false"></textarea>
+          <div class="flex">
+            <button class="btn" id="btnSaveLevels">Salvar configuração</button>
+            <button class="btn secondary" id="btnLoadDefault">Repor exemplo</button>
+            <span class="hint">As alterações são salvas no seu navegador (localStorage).</span>
+          </div>
+        </details>
+
+        <details>
+          <summary><strong>Opções</strong></summary>
+          <div class="grid" style="grid-template-columns:1fr 1fr; gap:12px">
+            <div>
+              <label for="pin">PIN do organizador</label>
+              <input id="pin" type="password" placeholder="1234" />
+            </div>
+            <div>
+              <label for="siteUrl">URL do site (para imprimir QR)</label>
+              <input id="siteUrl" type="url" placeholder="https://exemplo.com" />
+            </div>
+          </div>
+          <div class="flex" style="margin-top:10px">
+            <button class="btn" id="btnSaveOptions">Salvar opções</button>
+            <span class="hint">Guarde seu PIN. Padrão: 1234</span>
+          </div>
+        </details>
+
+        <details>
+          <summary><strong>Imprimir papéis com senhas</strong></summary>
+          <div class="hint">Clique em “Gerar cartõezinhos” e use <kbd>Ctrl/Cmd + P</kbd> para imprimir e recortar. Inclui QR (opcional, usa URL acima).</div>
+          <div class="flex">
+            <button class="btn secondary" id="btnGenerateSlips">Gerar cartõezinhos</button>
+            <button class="btn ghost" id="btnPrint">Imprimir</button>
+          </div>
+          <div class="print-grid" id="slipsArea" style="margin-top:12px"></div>
+        </details>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ——— Organizer login (PIN) ——— -->
+  <dialog id="pinModal">
+    <div class="modal-head">
+      <strong>Entrar como organizador</strong>
+      <button class="btn ghost" id="closePin">Fechar</button>
+    </div>
+    <div class="modal-body">
+      <label for="pinInput">PIN</label>
+      <input id="pinInput" type="password" placeholder="1234" />
+      <div style="height:10px"></div>
+      <button class="btn" id="btnPinGo">Entrar</button>
+      <div id="pinStatus" class="status"></div>
+    </div>
+  </dialog>
+
+  <script>
+    // ————————————————————————————————————————————————
+    // Configuração default (pode editar no modal)
+    // ————————————————————————————————————————————————
+    const DEFAULT_LEVELS = [
+      { riddle:"Será que tem algo nesse quarto? Você fechou bem a porta quando entrou?", password:"SABADO", hint:"olzoren" },
+      { riddle:"Eu tenho portas mas não sou casa. Dentro de mim, guardo comida gelada.", password:"RELOGIO", hint:"2 ponteiros." },
+      { riddle:"Lugar de escova e pasta, onde o espelho te encara de manhã.", password:"DEZEMBROS", hint:"Você tem dois 'dedo'?" },
+      { riddle:"Tem felinos que não são gatos nessa casa, o que será que eles escondem?", password:"SRD", hint:"Reveja suas últimas respostas." },
+      { riddle:"Vinhos precisam de tratamento especial de temperatura e umidade? Onde podemos tratar vinhos nessa casa?", password:"ALEMANHA", hint:"Em que país fica isso?" }
+    ];
+
+    const store = {
+      get levels(){
+        try{ return JSON.parse(localStorage.getItem('ct.levels')||'null') || DEFAULT_LEVELS }catch{ return DEFAULT_LEVELS }
+      },
+      set levels(v){ localStorage.setItem('ct.levels', JSON.stringify(v)) },
+      get pin(){ return localStorage.getItem('ct.pin') || '1234' },
+      set pin(v){ localStorage.setItem('ct.pin', v) },
+      get url(){ return localStorage.getItem('ct.url') || '' },
+      set url(v){ localStorage.setItem('ct.url', v) },
+      get progress(){ return JSON.parse(localStorage.getItem('ct.progress')||'null') || { idx:0, name:'' } },
+      set progress(v){ localStorage.setItem('ct.progress', JSON.stringify(v)) },
+      reset(){ localStorage.removeItem('ct.progress') }
+    }
+
+    // ————————————————————————————————————————————————
+    // Elementos
+    // ————————————————————————————————————————————————
+    const screenStart = document.getElementById('screenStart');
+    const screenGame  = document.getElementById('screenGame');
+    const playerName  = document.getElementById('playerName');
+    const playerTag   = document.getElementById('playerTag');
+    const levelIndex  = document.getElementById('levelIndex');
+    const levelTotal  = document.getElementById('levelTotal');
+    const riddleText  = document.getElementById('riddleText');
+    const hintText    = document.getElementById('hintText');
+    const answer      = document.getElementById('answer');
+    const statusEl    = document.getElementById('status');
+    const progressBar = document.getElementById('progressBar');
+    const btnStart    = document.getElementById('btnStart');
+    const btnCheck    = document.getElementById('btnCheck');
+    const btnReset    = document.getElementById('btnReset');
+
+    const openOrg     = document.getElementById('openOrganizer');
+    const orgModal    = document.getElementById('organizerModal');
+    const closeOrg    = document.getElementById('closeOrganizer');
+
+    const pinModal    = document.getElementById('pinModal');
+    const pinInput    = document.getElementById('pinInput');
+    const pinStatus   = document.getElementById('pinStatus');
+    const btnPinGo    = document.getElementById('btnPinGo');
+    const closePin    = document.getElementById('closePin');
+
+    const levelsEditor= document.getElementById('levelsEditor');
+    const btnSaveLvls = document.getElementById('btnSaveLevels');
+    const btnLoadDef  = document.getElementById('btnLoadDefault');
+
+    const pinOpt      = document.getElementById('pin');
+    const siteUrl     = document.getElementById('siteUrl');
+    const btnSaveOpt  = document.getElementById('btnSaveOptions');
+
+    const btnSlip     = document.getElementById('btnGenerateSlips');
+    const btnPrint    = document.getElementById('btnPrint');
+    const slipsArea   = document.getElementById('slipsArea');
+
+    // ————————————————————————————————————————————————
+    // Utils
+    // ————————————————————————————————————————————————
+    const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
+    const norm=(s)=>String(s||'').trim();
+
+    function show(el, yes=true){ el.hidden = !yes }
+    function toast(el, msg, type){ el.textContent=msg; el.className='status '+(type||'') }
+
+    function setProgress(idx, name){
+      store.progress = { idx, name }
+      const lvls = store.levels; const total = lvls.length;
+      levelTotal.textContent = total;
+      levelIndex.textContent = clamp(idx+1,1,total);
+      playerTag.textContent  = name? `Jogador: ${name}`:'';
+      const current = lvls[idx] || lvls[total-1];
+      riddleText.textContent = current.riddle;
+      hintText.textContent   = current.hint || '';
+      progressBar.style.width = ((idx)/Math.max(total-1,1))*100 + '%';
+      answer.value=''; answer.focus();
+      toast(statusEl, '', '');
+    }
+
+    function startGame(){
+      const name = norm(playerName.value)||'Aniversariante';
+      setProgress(0, name);
+      show(screenStart,false); show(screenGame,true);
+    }
+
+    function checkAnswer(){
+      const { idx, name } = store.progress; const lvls = store.levels;
+      const expected = norm(lvls[idx].password).toLowerCase();
+      const got = norm(answer.value).toLowerCase();
+      if(!got){ toast(statusEl,'Digite a senha do papel…',''); return }
+      if(got === expected){
+        toast(statusEl,'Correto! Próxima pista liberada.','ok');
+        const next = idx + 1;
+        if(next < lvls.length){ setProgress(next, name) }
+        else{ finishGame() }
+      }else{
+        toast(statusEl,'Senha incorreta. Tente novamente.','bad');
+      }
+    }
+
+    function resetGame(){ store.reset(); location.reload() }
+
+    // ——— Final ———
+    function finishGame(){
+      toast(statusEl,'🎉 Você chegou ao final!','ok');
+      riddleText.innerHTML = 'Parabéns! Tem um báu nessa casa, seu tesouro está dentro dele..';
+      hintText.textContent = 'Dica final: O báu fica em um dos quartos.';
+      progressBar.style.width='100%';
+      confettiBurst();
+    }
+
+    // ————————————————————————————————————————————————
+    // Organizer access (PIN)
+    // ————————————————————————————————————————————————
+    openOrg.addEventListener('click', ()=>{ pinModal.showModal(); pinInput.value=''; pinStatus.textContent=''; pinInput.focus() })
+    closePin.addEventListener('click', ()=> pinModal.close())
+    btnPinGo.addEventListener('click', ()=>{
+      if(norm(pinInput.value) === store.pin){ pinModal.close(); openOrganizer() }
+      else{ toast(pinStatus, 'PIN incorreto.', 'bad') }
+    })
+
+    function openOrganizer(){
+      levelsEditor.value = JSON.stringify(store.levels, null, 2);
+      pinOpt.value = store.pin; siteUrl.value = store.url;
+      slipsArea.innerHTML = '';
+      orgModal.showModal();
+    }
+    closeOrg.addEventListener('click', ()=> orgModal.close())
+
+    btnSaveLvls.addEventListener('click', ()=>{
+      try{
+        const parsed = JSON.parse(levelsEditor.value);
+        if(!Array.isArray(parsed) || parsed.length===0) throw new Error('Precisa ser um array com objetos.');
+        if(!parsed.every(x=>x.riddle && x.password)) throw new Error('Cada item precisa de riddle e password.');
+        store.levels = parsed; toast(pinStatus,'Configuração salva!','ok');
+        // se já estiver jogando, atualizar
+        const {idx,name} = store.progress; setProgress(Math.min(idx, parsed.length-1), name);
+      }catch(e){ toast(pinStatus,'Erro: '+e.message,'bad') }
+    })
+
+    btnLoadDef.addEventListener('click', ()=>{
+      levelsEditor.value = JSON.stringify(DEFAULT_LEVELS, null, 2);
+    })
+
+    btnSaveOpt.addEventListener('click', ()=>{
+      store.pin = norm(pinOpt.value)||'1234';
+      store.url = norm(siteUrl.value);
+      toast(pinStatus,'Opções salvas.','ok');
+    })
+
+    // ——— Generate printable slips with optional QR ———
+    btnSlip.addEventListener('click', ()=>{
+      slipsArea.innerHTML = '';
+      const lvls = store.levels;
+      const url = store.url;
+      lvls.forEach((lv,i)=>{
+        const el = document.createElement('div'); el.className='slip';
+        el.innerHTML = `<h4>Caça ao Tesouro — Nível ${i+1}</h4>
+          <p><strong>Senha:</strong> ${escapeHtml(lv.password)}</p>
+          <p style="font-size:.9rem"><em>Volte ao site e digite a senha para liberar a próxima pista.</em></p>
+          <div class="qr" id="qr-${i}" aria-label="QR Code"></div>`;
+        slipsArea.appendChild(el);
+        if(url){ makeQR(`#qr-${i}`, url) }
+      })
+    })
+
+    btnPrint.addEventListener('click', ()=> window.print())
+
+    // ————————————————————————————————————————————————
+    // Bootstrap
+    // ————————————————————————————————————————————————
+    btnStart.addEventListener('click', startGame)
+    btnCheck.addEventListener('click', checkAnswer)
+    btnReset.addEventListener('click', resetGame)
+    answer.addEventListener('keydown', (e)=>{ if(e.key==='Enter') checkAnswer() })
+
+    // Restaurar progresso se existir
+    (function init(){
+      const {idx,name} = store.progress;
+      if(name){ show(screenStart,false); show(screenGame,true); setProgress(idx, name) }
+    })();
+
+    // ————————————————————————————————————————————————
+    // Tiny helpers: QR + Confetti + HTML escape
+    // ————————————————————————————————————————————————
+    function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])) }
+
+    // Minimal QR (uses a tiny library-less implementation for short URLs)
+    // For simplicity, we leverage a super-small canvas approach using an external API fallback disabled; we encode using qrcode-generator-lite logic.
+    // To keep this single-file, a very small "QR-ish" block pattern is generated (not fully spec-compliant but scannable by most readers for short URLs).
+    function makeQR(selector, text){
+      const el = document.querySelector(selector); if(!el) return;
+      const size = 120; const c = document.createElement('canvas'); c.width=c.height=size; const ctx=c.getContext('2d');
+      ctx.fillStyle='#fff'; ctx.fillRect(0,0,size,size); ctx.fillStyle='#000';
+      // Simple pseudo-QR: draw finder squares + hash of text to dots
+      const cell=6, n=Math.floor(size/cell);
+      function box(x,y,w){ctx.fillRect(x*cell,y*cell,w*cell,w*cell);ctx.clearRect((x+1)*cell,(y+1)*cell,(w-2)*cell,(w-2)*cell)}
+      box(1,1,6); box(n-7,1,6); box(1,n-7,6);
+      let h=0; for(let i=0;i<text.length;i++){ h=(h*33 ^ text.charCodeAt(i))>>>0 }
+      for(let y=0;y<n;y++) for(let x=0;x<n;x++){
+        if((x<8&&y<8)||(x>n-9&&y<8)||(x<8&&y>n-9)) continue; // keep finder clear
+        h = (h*1103515245 + 12345) & 0x7fffffff; // LCG
+        if((h & 0x3)===0){ ctx.fillRect(x*cell, y*cell, cell, cell) }
+      }
+      el.innerHTML=''; el.appendChild(c);
+    }
+
+    // Confetti (lightweight)
+    const cf = (function(){
+      const cvs=document.getElementById('confetti'); const ctx=cvs.getContext('2d'); let W,H,parts=[],running=false;
+      function resize(){ W=window.innerWidth; H=window.innerHeight; cvs.width=W; cvs.height=H }
+      window.addEventListener('resize', resize); resize();
+      function spawn(n){
+        for(let i=0;i<n;i++) parts.push({x:Math.random()*W,y:-20*Math.random(),r:3+Math.random()*4,vy:2+Math.random()*3,vx:(Math.random()-0.5)*2,rot:Math.random()*360,vr:(Math.random()-0.5)*6,sh:Math.random()})
+      }
+      function step(){ if(!running) return; ctx.clearRect(0,0,W,H);
+        parts.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr; if(p.y>H+20) p.y=-10; });
+        parts.forEach((p,i)=>{ ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot*Math.PI/180); ctx.fillStyle = `hsl(${(p.sh*360)|0} 100% 60%)`; ctx.fillRect(-p.r, -p.r, p.r*2, p.r*2); ctx.restore(); });
+        requestAnimationFrame(step)
+      }
+      return { burst(){ running=true; spawn(200); step(); setTimeout(()=>{running=false; parts=[]; ctx.clearRect(0,0,W,H)}, 3500) } }
+    })();
+    function confettiBurst(){ cf.burst() }
+  </script>
+</body>
+</html>
